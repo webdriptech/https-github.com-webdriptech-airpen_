@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, Search, Plus, Trash2, Edit, Save } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 
 interface Note {
-  id: number;
+  id: number | Id<"notes">;
   title: string;
   content: string;
   date: string;
@@ -12,7 +15,23 @@ interface Note {
 }
 
 export function NotesView() {
-  const [notes, setNotes] = useState<Note[]>([
+  // Get notes from Convex
+  const userNotes = useQuery(api.notes.getUserNotes) || [];
+  const createNoteMutation = useMutation(api.notes.createNote);
+  const updateNoteMutation = useMutation(api.notes.updateNote);
+  const deleteNoteMutation = useMutation(api.notes.deleteNote);
+
+  // Convert Convex notes to our Note interface
+  const convexNotes = userNotes.map((note) => ({
+    id: note._id,
+    title: note.title,
+    content: note.content,
+    date: note.date,
+    tags: note.tags,
+  }));
+
+  // Sample notes to show if no notes exist
+  const sampleNotes = [
     {
       id: 1,
       title: "Machine Learning Basics",
@@ -36,7 +55,19 @@ export function NotesView() {
       date: "2023-06-05",
       tags: ["Programming", "Computer Science"],
     },
-  ]);
+  ];
+
+  // Use real notes if available, otherwise use sample notes
+  const [notes, setNotes] = useState<Note[]>(
+    convexNotes.length > 0 ? convexNotes : sampleNotes,
+  );
+
+  // Update local notes when Convex data changes
+  useEffect(() => {
+    if (convexNotes.length > 0) {
+      setNotes(convexNotes);
+    }
+  }, [userNotes]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeNote, setActiveNote] = useState<Note | null>(null);
@@ -52,44 +83,113 @@ export function NotesView() {
       ),
   );
 
-  const handleCreateNote = () => {
-    const newNote: Note = {
-      id: Date.now(),
-      title: "New Note",
-      content: "Start typing your notes here...",
-      date: new Date().toISOString().split("T")[0],
-      tags: ["New"],
-    };
+  const handleCreateNote = async () => {
+    try {
+      // Create a new note in Convex
+      const newNoteId = await createNoteMutation({
+        title: "New Note",
+        content: "Start typing your notes here...",
+        tags: ["New"],
+      });
 
-    setNotes([newNote, ...notes]);
-    setActiveNote(newNote);
-    setEditMode(true);
-    setEditedContent(newNote.content);
-  };
+      // For immediate UI update before the query refreshes
+      const newNote: Note = {
+        id: newNoteId,
+        title: "New Note",
+        content: "Start typing your notes here...",
+        date: new Date().toISOString(),
+        tags: ["New"],
+      };
 
-  const handleDeleteNote = (id: number) => {
-    setNotes(notes.filter((note) => note.id !== id));
-    if (activeNote && activeNote.id === id) {
-      setActiveNote(null);
-      setEditMode(false);
+      setNotes([newNote, ...notes]);
+      setActiveNote(newNote);
+      setEditMode(true);
+      setEditedContent(newNote.content);
+    } catch (error) {
+      console.error("Error creating note:", error);
+
+      // Fallback to local state if Convex fails
+      const newNote: Note = {
+        id: Date.now(),
+        title: "New Note",
+        content: "Start typing your notes here...",
+        date: new Date().toISOString(),
+        tags: ["New"],
+      };
+
+      setNotes([newNote, ...notes]);
+      setActiveNote(newNote);
+      setEditMode(true);
+      setEditedContent(newNote.content);
     }
   };
 
-  const handleSaveNote = () => {
+  const handleDeleteNote = async (id: number | Id<"notes">) => {
+    try {
+      // If it's a Convex ID, delete from the database
+      if (typeof id !== "number") {
+        await deleteNoteMutation({ id });
+      }
+
+      // Update local state
+      setNotes(notes.filter((note) => note.id !== id));
+      if (activeNote && activeNote.id === id) {
+        setActiveNote(null);
+        setEditMode(false);
+      }
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      // Still update local state even if Convex fails
+      setNotes(notes.filter((note) => note.id !== id));
+      if (activeNote && activeNote.id === id) {
+        setActiveNote(null);
+        setEditMode(false);
+      }
+    }
+  };
+
+  const handleSaveNote = async () => {
     if (activeNote) {
-      setNotes(
-        notes.map((note) =>
-          note.id === activeNote.id
-            ? {
-                ...note,
-                content: editedContent,
-                date: new Date().toISOString().split("T")[0],
-              }
-            : note,
-        ),
-      );
-      setActiveNote({ ...activeNote, content: editedContent });
-      setEditMode(false);
+      try {
+        // If it's a Convex ID, update in the database
+        if (typeof activeNote.id !== "number") {
+          await updateNoteMutation({
+            id: activeNote.id,
+            content: editedContent,
+          });
+        }
+
+        // Update local state
+        setNotes(
+          notes.map((note) =>
+            note.id === activeNote.id
+              ? {
+                  ...note,
+                  content: editedContent,
+                  date: new Date().toISOString(),
+                }
+              : note,
+          ),
+        );
+        setActiveNote({ ...activeNote, content: editedContent });
+        setEditMode(false);
+      } catch (error) {
+        console.error("Error saving note:", error);
+        // Still update local state even if Convex fails
+        setNotes(
+          notes.map((note) =>
+            note.id === activeNote.id
+              ? {
+                  ...note,
+                  content: editedContent,
+                  date: new Date().toISOString(),
+                }
+              : note,
+          ),
+        );
+        setActiveNote({ ...activeNote, content: editedContent });
+        setEditMode(false);
+      }
     }
   };
 

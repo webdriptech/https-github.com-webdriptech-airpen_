@@ -25,6 +25,13 @@ export const SignInButton = ({ children }: { children: React.ReactNode }) => (
 );
 export const UserButton = () => null;
 
+// Mock the useAuth hook that Convex needs
+export const useAuth = () => ({
+  isLoading: false,
+  isSignedIn: true,
+  getToken: async () => "mock-jwt-token",
+});
+
 export function MockClerkProvider({ children }: MockClerkProviderProps) {
   return <>{children}</>;
 }

@@ -19,7 +19,22 @@ export const Unauthenticated = ({
   children: React.ReactNode;
 }) => <>{children}</>;
 
+// Mock the ConvexReactClient
+class MockConvexReactClient {
+  constructor() {}
+}
+
 // Mock the ConvexProvider
 export function MockConvexProvider({ children }: MockConvexProviderProps) {
-  return <>{children}</>;
+  // Create a context that mimics the ConvexReactContext
+  const mockContext = {
+    client: new MockConvexReactClient(),
+    useQuery,
+    useMutation,
+    useAction,
+    Authenticated,
+    Unauthenticated,
+  };
+
+  return <div data-convex-provider>{children}</div>;
 }

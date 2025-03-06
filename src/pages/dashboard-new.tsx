@@ -38,8 +38,11 @@ export default function DashboardNew() {
   );
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Sample learning modules data
-  const modules = [
+  // Get modules from Convex
+  const userModules = useQuery(api.modules.getUserModules) || [];
+
+  // Combine with sample modules if needed
+  const sampleModules = [
     {
       id: 1,
       title: "Introduction to Machine Learning",
@@ -58,26 +61,19 @@ export default function DashboardNew() {
       description: "Essential computer science concepts for coding interviews",
       progress: 30,
     },
-    {
-      id: 4,
-      title: "Physics: Mechanics",
-      description:
-        "Understanding forces, motion, and energy in physical systems",
-      progress: 60,
-    },
-    {
-      id: 5,
-      title: "English Literature",
-      description: "Analysis of classic works and literary techniques",
-      progress: 15,
-    },
-    {
-      id: 6,
-      title: "Organic Chemistry",
-      description: "Structure, properties, and reactions of organic compounds",
-      progress: 50,
-    },
   ];
+
+  // Combine real modules with sample ones if needed
+  const modules =
+    userModules.length > 0
+      ? userModules.map((module) => ({
+          id: module._id,
+          title: module.title,
+          description: module.description,
+          progress: module.progress,
+          content: module.content,
+        }))
+      : sampleModules;
 
   // Filter modules based on search query
   const filteredModules = searchQuery
@@ -97,14 +93,18 @@ export default function DashboardNew() {
   };
 
   const handleSaveRecording = (recording: Blob, title: string) => {
-    console.log("Saving recording:", { recording, title });
-    // In a real app, you would upload the recording to a server
-    // and create a new module based on the transcription
+    console.log("Recording processed:", { title });
+    // The actual saving is now handled in the RecordingModal component
+    // which directly interacts with Convex
 
-    // For demo purposes, we'll just show a success message
-    alert(
-      `Recording "${title}" processed successfully! A new learning module has been created.`,
-    );
+    // We'll just refresh the modules list or show a success message
+    setTimeout(() => {
+      // In a real implementation, we would refresh the modules list here
+      // For now, just show a success message
+      alert(
+        `Recording "${title}" processed successfully! A new learning module has been created.`,
+      );
+    }, 500);
   };
 
   const handleCreateTopic = () => {
@@ -112,13 +112,18 @@ export default function DashboardNew() {
   };
 
   const handleSaveTopic = (topic: string, description: string) => {
-    console.log("Creating new topic:", { topic, description });
-    // In a real app, you would send this to the backend to generate content
+    console.log("Topic created:", { topic, description });
+    // The actual saving is now handled in the TopicModal component
+    // which directly interacts with Convex
 
-    // For demo purposes, we'll just show a success message
-    alert(
-      `Topic "${topic}" created successfully! A new learning module has been generated.`,
-    );
+    // We'll just refresh the modules list or show a success message
+    setTimeout(() => {
+      // In a real implementation, we would refresh the modules list here
+      // For now, just show a success message
+      alert(
+        `Topic "${topic}" created successfully! A new learning module has been generated.`,
+      );
+    }, 500);
   };
 
   const handleContinueModule = (moduleId: number) => {
